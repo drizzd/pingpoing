@@ -1,0 +1,93 @@
+<html>
+ <head>
+  <script type="application/javascript">
+var canvas = null;
+var fps = 2.0;
+var time = null;
+var A = { m: 3, n: 10 };
+
+function ackermann(m, n) {
+	if (m == 0)
+		return n+1;
+	else if (n == 0)
+		return ackermann(m-1, 1);
+	else
+		return ackermann(m-1, ackermann(m, n-1));
+}
+
+function init() {
+	var d = new Date();
+	time = d.getTime();
+
+	canvas = document.getElementById("canvas");
+
+	if (!canvas.getContext) {
+		alert('canvas.getContext failed');
+		return;
+	}
+
+	setTimeout(update, 1000/fps);
+}
+
+function update() {
+	var d = new Date();
+	var new_time = d.getTime()
+	console.log(new_time - time);
+	time = new_time;
+	//console.log(ackermann(A.m, A.n));
+	draw();
+	setTimeout(update, 1000/fps);
+}
+
+function drawDisc(ctx, r) {
+	ctx.ctrokeStyle = 'grey';
+	ctx.beginPath();
+	ctx.arc(0,0,r,0,Math.PI*2);
+	ctx.fill();
+}
+
+function drawBall(ctx, r) {
+	var radgrad = ctx.createRadialGradient(-3,-2,1,0,0,r);
+	radgrad.addColorStop(0, '#e0e0e0');
+	radgrad.addColorStop(0.9, '#686868');
+	radgrad.addColorStop(1, 'rgba(1,159,98,0)');
+
+	// draw shapes
+	ctx.fillStyle = radgrad;
+	ctx.fillRect(-r,-r,2*r,2*r);
+}
+
+function drawPanel(ctx, w, h)
+{
+	ctx.strokeStyle = 'black';
+	ctx.lineWidth = w;
+	ctx.lineCap = 'round';
+	ctx.beginPath();
+	ctx.moveTo(0,0);
+	ctx.lineTo(0,h);
+	ctx.stroke()
+}
+
+function draw() {
+	var ctx = canvas.getContext("2d");
+	var x = 75;
+	var y = 75;
+	var r = 10;
+
+	ctx.save();
+	ctx.translate(10, 10);
+	drawPanel(ctx, 10, 100);
+	ctx.restore();
+	
+	ctx.save();
+	ctx.translate(x,y)
+	drawBall(ctx, r);
+	//drawDisc(ctx, r);
+	ctx.restore();
+}
+  </script>
+ </head>
+ <body onload="init();">
+   <canvas id="canvas" width="500" height="500">fallback content</canvas>
+ </body>
+</html>
