@@ -2,9 +2,13 @@
  <head>
   <script type="application/javascript">
 var canvas = null;
-var fps = 2.0;
-var time = null;
-var A = { m: 3, n: 10 };
+var target_fps = 30.0;
+var cnt = 0;
+var prev_time = null;
+var fps_start = null;
+var ball = { x: 75, y: 75 };
+var v = { x: 2, y: 3 };
+var A = { m: 2, n: 4 };
 
 function ackermann(m, n) {
 	if (m == 0)
@@ -17,7 +21,7 @@ function ackermann(m, n) {
 
 function init() {
 	var d = new Date();
-	time = d.getTime();
+	prev_time = d.getTime();
 
 	canvas = document.getElementById("canvas");
 
@@ -26,17 +30,36 @@ function init() {
 		return;
 	}
 
-	setTimeout(update, 1000/fps);
+	update();
+}
+
+function pos_add(a, v) {
+	a.x += v.x;
+	a.y += v.y;
+
+	return a;
 }
 
 function update() {
 	var d = new Date();
-	var new_time = d.getTime()
-	console.log(new_time - time);
-	time = new_time;
-	//console.log(ackermann(A.m, A.n));
+	var time = d.getTime()
+	cnt += 1;
+	if (1000*Math.floor(time/1000) > prev_time) {
+		var t = time - fps_start;
+		if (fps_start && t > 0) {
+			var fps = 1000*cnt/t;
+			console.log("fps: " + fps.toFixed(1), " ", t, cnt);
+		}
+		cnt = 0;
+		fps_start = time;
+	}
+
+	// get busy
+	ackermann(A.m, A.n);
+
 	draw();
-	setTimeout(update, 1000/fps);
+	prev_time = time;
+	setTimeout(update, 1000/target_fps);
 }
 
 function drawDisc(ctx, r) {
@@ -70,8 +93,6 @@ function drawPanel(ctx, w, h)
 
 function draw() {
 	var ctx = canvas.getContext("2d");
-	var x = 75;
-	var y = 75;
 	var r = 10;
 
 	ctx.save();
@@ -80,7 +101,7 @@ function draw() {
 	ctx.restore();
 	
 	ctx.save();
-	ctx.translate(x,y)
+	ctx.translate(ball.x,ball.y)
 	drawBall(ctx, r);
 	//drawDisc(ctx, r);
 	ctx.restore();
