@@ -7,9 +7,12 @@ var status_interval = 2000;
 var canvas = null;
 var prev_time = null;
 var fps_start = null;
-var ball = { x: 75, y: 75 };
-var panel = { x: 15, y: 60, w: 10, h: 100 };
-var v = { x: 100, y: 175 };
+var ball = { pos: { x: 75, y: 75 }, radius: 10 };
+var panel = { pos: { x: 15, y: 60 }, w: 10, h: 50, v: 120 };
+var v0 = null;
+var v1 = { x: 100, y: 175 };
+var v = v0;
+var lastkey = null;
 
 function init() {
 	var d = new Date();
@@ -23,6 +26,19 @@ function init() {
 	}
 
 	update();
+	window.addEventListener('keydown', doKeyDown, true);
+	window.addEventListener('keyup', doKeyUp, true);
+}
+
+function doKeyDown(evt) {
+	lastkey = evt.keyCode;
+	if (v == null) {
+		v = v1;
+	}
+}
+
+function doKeyUp(evt) {
+	lastkey = null;
 }
 
 function vec_copy(v) {
@@ -51,12 +67,12 @@ var cnt = 0;
 function check_status(time) {
 	cnt += 1;
 	if (status_interval*Math.floor(time/status_interval) > prev_time) {
-		console.log("ball:", ball.x.toFixed(0), ball.y.toFixed(0));
+		console.log("ball", ball.pos.x.toFixed(0), ball.pos.y.toFixed(0));
 
 		var t = (time - fps_start)/1000;
 		if (fps_start && t > 0) {
 			var fps = cnt/t;
-			console.log("fps: " + fps.toFixed(1));
+			console.log("fps", fps.toFixed(1));
 		}
 
 		cnt = 0;
@@ -64,38 +80,55 @@ function check_status(time) {
 	}
 }
 
-function limit1(x, w) {
-	if (x < 0) {
-		x = 0;
-	} else if (x > w) {
-		x = w;
+function limit1(x, x0, x1) {
+	if (x < x0) {
+		x = x0;
+	} else if (x > x1) {
+		x = x1;
 	}
 
 	return x;
 }
 
-function limit(v, x, y) {
-	return { x: limit1(v.x, x), y: limit1(v.y, y) };
+function limit(a, x0, y0, x1, y1) {
+	return { x: limit1(a.x, x0, x1), y: limit1(a.y, y0, y1) };
 }
 
-function reflect1(x, w) {
-	if (x < 0) {
-		x = -x;
-	} else if (x > w) {
-		x = w - (x - w);
+function reflect1(x, x0, x1) {
+	if (x < x0) {
+		x = x0 + (x0 - x);
+	} else if (x > x1) {
+		x = x1 - (x - x1);
 	}
 
 	return x;
 }
 
-function reflect(a, x, y) {
+function reflect(a, x0, y0, x1, y1) {
 	var b = vec_copy(a);
 
-	b.x = reflect1(b.x, x);
-	b.y = reflect1(b.y, y);
+	b.x = reflect1(b.x, x0, x1);
+	b.y = reflect1(b.y, y0, y1);
 
-	return limit(b, x, y);
+	return limit(b, x0, y0, x1, y1);
 }
+
+function move_within_rect(a, w, x0, y0, x1, y1)
+{
+	b = vec_copy(a);
+	b = vec_add(b, w);
+
+	if (b.x < x0 || b.x > x1) {
+		v.x = -v.x;
+	}
+	if (b.y < y0 || b.y > y1) {
+		v.y = -v.y;
+	}
+
+	b = reflect(b, x0, y0, x1, y1);
+
+	return b;
+};
 
 function update() {
 	var d = new Date();
@@ -103,15 +136,25 @@ function update() {
 
 	var t = (time - prev_time)/1000.0;
 
-	var w = vec_scal(t, v);
-	ball = vec_add(ball, w);
-	if (ball.x < 0 || ball.x > canvas.width) {
-		v.x = -v.x;
+	if (v != null) {
+		var w = vec_scal(t, v);
+		ball.pos = move_within_rect(ball.pos, w,
+				ball.radius, ball.radius,
+				canvas.width-ball.radius, canvas.height-ball.radius);
 	}
-	if (ball.y < 0 || ball.y > canvas.height) {
-		v.y = -v.y;
+
+	switch (lastkey) {
+		case 38: /* up arrow */
+			panel.pos.y = panel.pos.y - panel.v * t;
+			break;
+		case 40: /* down arrow */
+			panel.pos.y = panel.pos.y + panel.v * t;
+			break;
 	}
-	ball = reflect(ball, canvas.width, canvas.height);
+
+	panel.pos = limit(panel.pos,
+			panel.w/2.0, panel.h/2.0,
+			canvas.width-panel.w/2.0, canvas.height-panel.h/2.0);
 
 	draw();
 
@@ -152,7 +195,6 @@ function drawPanel(ctx, w, h)
 
 function draw() {
 	var ctx = canvas.getContext("2d");
-	var r = 10;
 
 	ctx.save();
 	ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -160,15 +202,15 @@ function draw() {
 	ctx.restore();
 
 	ctx.save();
-	ctx.translate(panel.x, panel.y);
+	ctx.translate(panel.pos.x, panel.pos.y);
 	ctx.translate(-panel.w/2, -panel.h/2);
 	drawPanel(ctx, panel.w, panel.h);
 	ctx.restore();
 	
 	ctx.save();
-	ctx.translate(ball.x,ball.y)
-	drawBall(ctx, r);
-	//drawDisc(ctx, r);
+	ctx.translate(ball.pos.x,ball.pos.y)
+	drawBall(ctx, ball.radius);
+	//drawDisc(ctx, ball.radius);
 	ctx.restore();
 }
   </script>
@@ -177,6 +219,6 @@ function draw() {
 	 canvas { border: 1px solid black; }
  </style>
  <body onload="init();">
-   <canvas id="canvas" border="1" width="500" height="200">fallback content</canvas>
+   <canvas id="canvas" border="1" width="200" height="200">fallback content</canvas>
  </body>
 </html>
