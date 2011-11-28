@@ -1,23 +1,15 @@
 <html>
  <head>
   <script type="application/javascript">
+var target_fps = 60.0;
+var status_interval = 2000;
+
 var canvas = null;
-var target_fps = 30.0;
-var cnt = 0;
 var prev_time = null;
 var fps_start = null;
 var ball = { x: 75, y: 75 };
-var v = { x: 2, y: 3 };
-var A = { m: 2, n: 4 };
-
-function ackermann(m, n) {
-	if (m == 0)
-		return n+1;
-	else if (n == 0)
-		return ackermann(m-1, 1);
-	else
-		return ackermann(m-1, ackermann(m, n-1));
-}
+var panel = { x: 15, y: 60, w: 10, h: 100 };
+var v = { x: 100, y: 175 };
 
 function init() {
 	var d = new Date();
@@ -33,31 +25,98 @@ function init() {
 	update();
 }
 
-function pos_add(a, v) {
-	a.x += v.x;
-	a.y += v.y;
+function vec_copy(v) {
+	return { x: v.x, y: v.y };
+}
 
-	return a;
+function vec_add(a, v) {
+	b = vec_copy(a);
+
+	b.x += v.x;
+	b.y += v.y;
+
+	return b;
+}
+
+function vec_scal(t, v) {
+	var w = vec_copy(v);
+
+	w.x *= t;
+	w.y *= t;
+
+	return w;
+}
+
+var cnt = 0;
+function check_status(time) {
+	cnt += 1;
+	if (status_interval*Math.floor(time/status_interval) > prev_time) {
+		console.log("ball:", ball.x.toFixed(0), ball.y.toFixed(0));
+
+		var t = (time - fps_start)/1000;
+		if (fps_start && t > 0) {
+			var fps = cnt/t;
+			console.log("fps: " + fps.toFixed(1));
+		}
+
+		cnt = 0;
+		fps_start = time;
+	}
+}
+
+function limit1(x, w) {
+	if (x < 0) {
+		x = 0;
+	} else if (x > w) {
+		x = w;
+	}
+
+	return x;
+}
+
+function limit(v, x, y) {
+	return { x: limit1(v.x, x), y: limit1(v.y, y) };
+}
+
+function reflect1(x, w) {
+	if (x < 0) {
+		x = -x;
+	} else if (x > w) {
+		x = w - (x - w);
+	}
+
+	return x;
+}
+
+function reflect(a, x, y) {
+	var b = vec_copy(a);
+
+	b.x = reflect1(b.x, x);
+	b.y = reflect1(b.y, y);
+
+	return limit(b, x, y);
 }
 
 function update() {
 	var d = new Date();
 	var time = d.getTime()
-	cnt += 1;
-	if (1000*Math.floor(time/1000) > prev_time) {
-		var t = time - fps_start;
-		if (fps_start && t > 0) {
-			var fps = 1000*cnt/t;
-			console.log("fps: " + fps.toFixed(1), " ", t, cnt);
-		}
-		cnt = 0;
-		fps_start = time;
-	}
 
-	// get busy
-	ackermann(A.m, A.n);
+	var t = (time - prev_time)/1000.0;
+
+	var w = vec_scal(t, v);
+	ball = vec_add(ball, w);
+	if (ball.x < 0 || ball.x > canvas.width) {
+		v.x = -v.x;
+	}
+	if (ball.y < 0 || ball.y > canvas.height) {
+		v.y = -v.y;
+	}
+	ball = reflect(ball, canvas.width, canvas.height);
 
 	draw();
+
+	check_status(time);
+
 	prev_time = time;
 	setTimeout(update, 1000/target_fps);
 }
@@ -96,8 +155,14 @@ function draw() {
 	var r = 10;
 
 	ctx.save();
-	ctx.translate(10, 10);
-	drawPanel(ctx, 10, 100);
+	ctx.setTransform(1, 0, 0, 1, 0, 0);
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	ctx.restore();
+
+	ctx.save();
+	ctx.translate(panel.x, panel.y);
+	ctx.translate(-panel.w/2, -panel.h/2);
+	drawPanel(ctx, panel.w, panel.h);
 	ctx.restore();
 	
 	ctx.save();
@@ -108,7 +173,10 @@ function draw() {
 }
   </script>
  </head>
+ <style type="text/css">
+	 canvas { border: 1px solid black; }
+ </style>
  <body onload="init();">
-   <canvas id="canvas" width="500" height="500">fallback content</canvas>
+   <canvas id="canvas" border="1" width="500" height="200">fallback content</canvas>
  </body>
 </html>
