@@ -188,7 +188,7 @@ function ball_kickoff()
 {
 	if (lastkey == 38 || lastkey == 40) {
 		if (ball.v == null) {
-			ball.v = ball.v0;
+			ball.v = vec_copy(ball.v0);
 		}
 	}
 }
