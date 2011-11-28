@@ -110,8 +110,6 @@ var cnt = 0;
 function check_status(time) {
 	cnt += 1;
 	if (status_interval*Math.floor(time/status_interval) > prev_time) {
-		console.log("ball", ball.pos.x.toFixed(0), ball.pos.y.toFixed(0));
-
 		var t = (time - fps_start)/1000;
 		if (fps_start && t > 0) {
 			var fps = cnt/t;
