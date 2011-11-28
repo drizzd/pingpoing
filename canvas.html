@@ -1,12 +1,19 @@
 <html>
  <head>
   <script type="application/javascript">
+// targeted frames per second [1/second]
 var target_fps = 60.0;
+// status interval [milliseconds]
 var status_interval = 2000;
-var start_direction = { x: 100, y: 175 };
-var ball = { pos: { x: 75, y: 75 }, radius: 10, v: null };
-var panel = { pos: { x: 15, y: 60 }, w: 10, h: 50, v: 120 };
+// maximum interval between updates [seconds]
+var update_max = 0.2;
+var ball = { pos: null, pos0: { x: 75, y: 75 }, radius: 10, v: null,
+	// starting direction of the ball
+	v0: { x: 100, y: 175 }
+};
+var panel = { pos: null, pos0: { x: 15, y: 60 }, w: 10, h: 50, v: 120 };
 
+var wait_for_key_release = false;
 var canvas = null;
 var prev_time = null;
 var fps_start = null;
@@ -23,9 +30,50 @@ function init() {
 		return;
 	}
 
+	reset();
 	update();
 	window.addEventListener('keydown', doKeyDown, true);
 	window.addEventListener('keyup', doKeyUp, true);
+}
+
+function reset() {
+	ball.pos = ball.pos0;
+	ball.v = null;
+	panel.pos = panel.pos0;
+	if (lastkey != null) {
+		wait_for_key_release = true;
+	}
+}
+
+function update() {
+	var d = new Date();
+	var time = d.getTime()
+
+	var t = (time - prev_time)/1000.0;
+	/* lag */
+	if (t > update_max) {
+		t = update_max;
+	}
+
+	var game_over = move_within_rect(ball, t,
+			0, ball.radius,
+			canvas.width-ball.radius, canvas.height-ball.radius);
+	if (game_over) {
+		reset();
+	}
+
+	if (!wait_for_key_release) {
+		panel_hits_ball();
+		handle_user_input(t);
+		ball_kickoff();
+	}
+
+	draw();
+
+	check_status(time);
+
+	prev_time = time;
+	setTimeout(update, 1000/target_fps);
 }
 
 function doKeyDown(evt) {
@@ -36,19 +84,17 @@ function doKeyUp(evt) {
 	if (evt.keyCode == lastkey) {
 		lastkey = null;
 	}
+	if (lastkey == null) {
+		wait_for_key_release = false;
+	}
 }
 
 function vec_copy(a) {
 	return { x: a.x, y: a.y };
 }
 
-function vec_add(a, v) {
-	b = vec_copy(a);
-
-	b.x += v.x;
-	b.y += v.y;
-
-	return b;
+function vec_add(a, b) {
+	return { x: a.x + b.x, y: a.y + b.y };
 }
 
 function vec_scal(t, v) {
@@ -113,12 +159,16 @@ function reflect(a, x0, y0, x1, y1) {
 function move_within_rect(obj, t, x0, y0, x1, y1)
 {
 	if (obj.v == null) {
-		return;
+		return false;
 	}
 
 	var w = vec_scal(t, obj.v);
 	b = vec_copy(obj.pos);
 	b = vec_add(b, w);
+
+	if (b.x < x0) {
+		return true;
+	}
 
 	if (b.x < x0 || b.x > x1) {
 		obj.v.x = -obj.v.x;
@@ -130,18 +180,38 @@ function move_within_rect(obj, t, x0, y0, x1, y1)
 	b = reflect(b, x0, y0, x1, y1);
 
 	obj.pos = b;
+
+	return false;
 };
 
-function update() {
-	var d = new Date();
-	var time = d.getTime()
+function ball_kickoff()
+{
+	if (lastkey == 38 || lastkey == 40) {
+		if (ball.v == null) {
+			ball.v = ball.v0;
+		}
+	}
+}
 
-	var t = (time - prev_time)/1000.0;
+function panel_hits_ball() {
+	if (ball.v == null) {
+		return;
+	}
 
-	move_within_rect(ball, t,
-			ball.radius, ball.radius,
-			canvas.width-ball.radius, canvas.height-ball.radius);
+	var x0 = panel.pos.x+panel.w/2.0;
 
+	if (ball.pos.x-ball.radius < x0) {
+		if (ball.pos.y < panel.pos.y+panel.h/2.0 && ball.pos.y > panel.pos.y-panel.h/2.0) {
+			ball.pos = reflect(ball.pos,
+					x0+ball.radius, ball.radius,
+					panel.width-ball.radius, panel.height-ball.radius);
+			ball.v.x = -ball.v.x;
+		}
+	}
+}
+
+function handle_user_input(t)
+{
 	switch (lastkey) {
 		case 38: /* up arrow */
 			panel.pos.y = panel.pos.y - panel.v * t;
@@ -151,22 +221,9 @@ function update() {
 			break;
 	}
 
-	if (lastkey == 38 || lastkey == 40) {
-		if (ball.v == null) {
-			ball.v = start_direction;
-		}
-	}
-
 	panel.pos = limit(panel.pos,
 			panel.w/2.0, panel.h/2.0,
 			canvas.width-panel.w/2.0, canvas.height-panel.h/2.0);
-
-	draw();
-
-	check_status(time);
-
-	prev_time = time;
-	setTimeout(update, 1000/target_fps);
 }
 
 function drawDisc(ctx, r) {
